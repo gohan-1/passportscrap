@@ -1,3 +1,10 @@
+#google trans
+
+import googletrans
+from  googletrans import Translator
+
+
+
 from django.shortcuts import render
 import pandas as pd
 import numpy as np
@@ -43,6 +50,7 @@ from rest_framework.parsers import JSONParser
 
 from .serializer import ArticleSerializer
 clf=None
+train_data=None
 
 @csrf_exempt
 def train_model(request):
@@ -56,14 +64,14 @@ def train_model(request):
             data=data.fillna(0)
             s = data["Birth year"]
             s[s!=0]
-            data["Birth year"]=s[s!=0].apply(lambda x: time.mktime(datetime.datetime.strptime(str(x), "%d/%m/%Y").timetuple()) )
+            data["Birth year"]=s[s!=0].str.replace("/","").astype(int)
             data=data.fillna(0) 
 
             data['Birth year'].apply(type)
             data['Uid']=data['Uid'].astype(str).str.replace(' ', '').astype(float)
 
             s=data['Uid']
-            s
+            
 
 
 
@@ -113,6 +121,7 @@ def train_model(request):
             
 @csrf_exempt
 def scrap(request):
+    global train_data
     if request.method == 'POST':
         try:
             json_data = json.loads(request.body)
@@ -308,8 +317,10 @@ def scrap(request):
             
             df = pd.DataFrame(details)
             # df.to_csv('valid.csv', index=False)
-
+            output=open('invalid.csv','wb')
             df.to_csv('invalid.csv', index=False)
+            train_data=df
+            print(df)
         
             return JsonResponse("data successfully read",safe=False)
         except Exception:
@@ -322,8 +333,8 @@ def predict(request):
         try:
             json_data = json.loads(request.body)
             print(json_data)
-            data= pd.read_csv('./invalid.csv')
-            print(data)
+            file = json_data['file']
+            data=train_data
             data=data.fillna(0)
 
             s =data["Birth year"]
@@ -372,6 +383,29 @@ def predict(request):
             return JsonResponse(output)
         except Exception:
             return JsonResponse(Exception,safe=False)
+
+
+
+@csrf_exempt
+def languages(request):
+    if request.method == 'GET':
+        print(googletrans.LANGUAGES)
+        old_dict=googletrans.LANGUAGES
+        new_languages = dict([(value, key) for key, value in old_dict.items()]) 
+        return JsonResponse(new_languages)
+
+
+@csrf_exempt
+def translate(request):
+    if request.method == 'POST':
+        translator=Translator()
+        lan_param = json.loads(request.body)
+        
+        trans_text=translator.translate(lan_param["text"],src=lan_param["source"] ,dest=lan_param["destination"])
+        print(trans_text.text)
+        return JsonResponse(trans_text.text,safe=False)
+
+
 
 
 
